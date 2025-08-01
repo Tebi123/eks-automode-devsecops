@@ -1,0 +1,103 @@
+---
+# See https://pre-commit.com for more information
+repos:
+  # General Security and Secrets Detection
+  # - repo: https://github.com/gitleaks/gitleaks
+  #   rev: v8.18.0
+  #   hooks:
+  #     - id: gitleaks
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: .*\.lock
+
+  # Git Security
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-yaml
+        args: ['--unsafe']
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+      - id: detect-private-key
+      - id: detect-aws-credentials
+        args: ['--allow-missing-credentials']
+
+  # Terraform Specific Hooks
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.86.0
+    hooks:
+      - id: terraform_fmt
+        args:
+          - --args=-diff
+          - --args=-write=true
+      
+      - id: terraform_validate
+        exclude: '^[^/]+$'
+        args:
+          - --tf-init-args=-upgrade
+          - --hook-config=--retry-once-with-cleanup=true
+      
+      - id: terraform_tflint
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+      
+      - id: terraform_tfsec
+        args:
+          - --args=--soft-fail
+          - --args=--format=json
+          - --args=--out=tfsec-results.json
+      
+      - id: terraform_checkov
+        args:
+          - --args=--quiet
+          - --args=--compact
+          - --args=--framework terraform
+          - --args=--skip-check CKV_AWS_158,CKV_AWS_144
+      
+      - id: terraform_docs
+        args:
+          - --args=--config=.terraform-docs.yml
+          - --args=--output-file=README.md
+          - --args=--output-mode=inject
+
+  # YAML Linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: ['-c=.yamllint.yml']
+
+  # # Markdown
+  # - repo: https://github.com/igorshubovych/markdownlint-cli
+  #   rev: v0.39.0
+  #   hooks:
+  #     - id: markdownlint
+  #       args: ['--fix']
+
+  # JSON
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-json
+      - id: pretty-format-json
+        args: ['--autofix', '--indent=2']
+        exclude: .*\.tfstate.*
+
+# Security-specific for entire infra
+  - repo: local
+    hooks:
+      - id: terraform-security-scan
+        name: Terraform Security Scan
+        entry: scripts/security/terraform-scan.sh
+        language: script
+        files: \.tf$
+        pass_filenames: false
